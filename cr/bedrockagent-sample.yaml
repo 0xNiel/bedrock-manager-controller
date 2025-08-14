@@ -1,0 +1,25 @@
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: customer-service-agent
+  namespace: default
+spec:
+  type: agent
+  region: us-east-1
+  agent:
+    name: "CustomerServiceAgent"
+    description: "AI agent for customer service interactions"
+    foundationModel: "anthropic.claude-3-haiku-20240307-v1:0"
+    instruction: |
+      You are a helpful customer service agent for an e-commerce company. 
+      You should:
+      - Be polite and professional
+      - Help customers with order inquiries, returns, and general questions
+      - If you cannot help with a request, escalate to a human agent
+      - Always ask for order numbers when discussing specific orders
+    autoPrepare: true
+    idleSessionTTLInSeconds: 600
+    tags:
+      Environment: "production"
+      Team: "customer-service"
+      Purpose: "customer-support"

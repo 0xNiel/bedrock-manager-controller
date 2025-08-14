@@ -28,7 +28,7 @@ lint: ## Run golangci-lint
 
 .PHONY: test
 test: ## Run unit tests with race detection and coverage
-	go test -race -coverprofile=coverage.out ./...
+	go test -race -coverprofile=coverage.out ./tests/...
 
 .PHONY: clean
 clean: ## Remove build artifacts
@@ -37,13 +37,13 @@ clean: ## Remove build artifacts
 # Builds
 .PHONY: build-local
 build-local: ## Build for local macOS (darwin/arm64)
-	mkdir -p dist
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) go build $(BUILD_FLAGS) -o dist/controller-local ./controller
+	mkdir -p bin
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=$(CGO_ENABLED) go build $(BUILD_FLAGS) -o bin/controller-local .
 
 .PHONY: build-deploy
 build-deploy: ## Build for deployment (linux/amd64)
-	mkdir -p dist
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) go build $(BUILD_FLAGS) -o dist/controller ./controller
+	mkdir -p bin
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=$(CGO_ENABLED) go build $(BUILD_FLAGS) -o bin/controller .
 
 # Docker
 .PHONY: docker-local
@@ -61,7 +61,7 @@ run: build-local ## Build and run the local binary with current KUBECONFIG
 	@echo "Current context: $$(kubectl config current-context 2>/dev/null || echo 'No context set')"
 	@echo "Proceeding in 3 seconds... (Ctrl+C to cancel)"
 	@sleep 3
-	./dist/controller-local
+	./bin/controller-local
 
 # Manifests / Generate
 .PHONY: crd-validate

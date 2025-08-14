@@ -1,0 +1,12 @@
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: product-knowledge-base
+  namespace: default
+spec:
+  type: knowledgeBase
+  region: us-east-1
+  knowledgeBase:
+    name: "ProductKnowledgeBase"
+    description: "Knowledge base containing product information and FAQs"
+    # Additional knowledge base fields will be implemented in future iterations

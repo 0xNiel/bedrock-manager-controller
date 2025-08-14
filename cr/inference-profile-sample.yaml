@@ -1,0 +1,12 @@
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: custom-inference-profile
+  namespace: default
+spec:
+  type: inferenceProfile
+  region: us-east-1
+  inferenceProfile:
+    name: "CustomInferenceProfile"
+    description: "Custom inference configuration for optimized performance"
+    # Additional inference profile fields will be implemented in future iterations

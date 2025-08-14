@@ -1,0 +1,239 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: bedrockresources.bedrock.aws.example.com
+spec:
+  group: bedrock.aws.example.com
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - type
+            properties:
+              type:
+                type: string
+                enum:
+                - agent
+                - inferenceProfile
+                - knowledgeBase
+                description: "The type of Bedrock resource to manage"
+              
+              # Agent-specific configuration
+              agent:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: "Name for the agent"
+                  description:
+                    type: string
+                    description: "Description of the agent"
+                  foundationModel:
+                    type: string
+                    description: "Foundation model ID for the agent"
+                  instruction:
+                    type: string
+                    description: "Instructions that tell the agent what it should do"
+                  agentResourceRoleArn:
+                    type: string
+                    description: "IAM role ARN with permissions to invoke API operations"
+                  customerEncryptionKeyArn:
+                    type: string
+                    description: "KMS key ARN for encryption"
+                  idleSessionTTLInSeconds:
+                    type: integer
+                    minimum: 60
+                    maximum: 3600
+                    description: "Session timeout in seconds"
+                  autoPrepare:
+                    type: boolean
+                    default: false
+                    description: "Automatically prepare the agent after creation/updates"
+                  tags:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: "AWS tags to apply to the agent"
+                  
+                  # Advanced configurations (optional)
+                  guardrailConfiguration:
+                    type: object
+                    properties:
+                      guardrailId:
+                        type: string
+                      guardrailVersion:
+                        type: string
+                    description: "Guardrail configuration for the agent"
+                  
+                  memoryConfiguration:
+                    type: object
+                    properties:
+                      enabledMemoryTypes:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                          - SESSION_SUMMARY
+                      storageDays:
+                        type: integer
+                        minimum: 1
+                        maximum: 999
+                    description: "Memory configuration for the agent"
+              
+              # Inference Profile configuration (future implementation)
+              inferenceProfile:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: "Name for the inference profile"
+                  description:
+                    type: string
+                    description: "Description of the inference profile"
+                  # Additional inference profile fields will be added
+                
+              # Knowledge Base configuration (future implementation)  
+              knowledgeBase:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: "Name for the knowledge base"
+                  description:
+                    type: string
+                    description: "Description of the knowledge base"
+                  # Additional knowledge base fields will be added
+                
+              # Common configuration
+              region:
+                type: string
+                default: "us-east-1"
+                description: "AWS region for the Bedrock resource"
+                
+            # Validation: exactly one resource type must be specified
+            oneOf:
+            - properties:
+                type:
+                  const: agent
+              required:
+              - agent
+            - properties:
+                type:
+                  const: inferenceProfile
+              required:
+              - inferenceProfile
+            - properties:
+                type:
+                  const: knowledgeBase
+              required:
+              - knowledgeBase
+              
+          status:
+            type: object
+            properties:
+              # Standard Kubernetes conditions
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                      enum:
+                      - "True"
+                      - "False"
+                      - "Unknown"
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                  required:
+                  - type
+                  - status
+                  - lastTransitionTime
+                description: "Current status conditions"
+                
+              # Resource-specific status
+              phase:
+                type: string
+                enum:
+                - Creating
+                - Created
+                - Preparing
+                - Prepared
+                - Updating
+                - Deleting
+                - Failed
+                description: "Current phase of the resource"
+                
+              # Agent-specific status
+              agentId:
+                type: string
+                description: "AWS Agent ID when type is agent"
+              agentArn:
+                type: string
+                description: "AWS Agent ARN when type is agent"
+              agentStatus:
+                type: string
+                description: "AWS Agent status"
+              agentVersion:
+                type: string
+                description: "AWS Agent version"
+              preparedAt:
+                type: string
+                format: date-time
+                description: "When the agent was last prepared"
+                
+              # Generic resource identifiers
+              resourceId:
+                type: string
+                description: "AWS resource ID"
+              resourceArn:
+                type: string
+                description: "AWS resource ARN"
+                
+              observedGeneration:
+                type: integer
+                description: "Generation of the spec that was last processed"
+                
+              lastSyncTime:
+                type: string
+                format: date-time
+                description: "Last time the resource was synchronized with AWS"
+                
+    subresources:
+      status: {}
+    additionalPrinterColumns:
+    - name: Type
+      type: string
+      jsonPath: .spec.type
+    - name: Phase
+      type: string
+      jsonPath: .status.phase
+    - name: Resource ID
+      type: string
+      jsonPath: .status.resourceId
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+      
+  scope: Namespaced
+  names:
+    plural: bedrockresources
+    singular: bedrockresource
+    kind: BedrockResource
+    shortNames:
+    - br
+    - bedrock

@@ -1,0 +1,32 @@
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: advanced-agent
+  namespace: default
+spec:
+  type: agent
+  region: us-east-1
+  agent:
+    name: "AdvancedCustomerAgent"
+    description: "Advanced customer service agent with guardrails and memory"
+    foundationModel: "anthropic.claude-3-sonnet-20240229-v1:0"
+    instruction: |
+      You are an advanced customer service agent with access to customer data and order systems.
+      Use the provided knowledge base and action groups to help customers effectively.
+      Always maintain customer privacy and follow security protocols.
+    agentResourceRoleArn: "arn:aws:iam::123456789012:role/BedrockAgentRole"
+    customerEncryptionKeyArn: "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+    autoPrepare: true
+    idleSessionTTLInSeconds: 1800
+    guardrailConfiguration:
+      guardrailId: "guardrail-12345"
+      guardrailVersion: "1"
+    memoryConfiguration:
+      enabledMemoryTypes:
+      - SESSION_SUMMARY
+      storageDays: 30
+    tags:
+      Environment: "production"
+      Team: "customer-service"
+      Purpose: "advanced-support"
+      Compliance: "required"
