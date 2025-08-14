@@ -1,0 +1,10 @@
+/references/
+/tests/
+/bin/
+/dist/
+/vendor/
+.DS_Store
+.env
+.idea
+.vscode
+coverage.*

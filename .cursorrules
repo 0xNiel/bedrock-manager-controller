@@ -1,0 +1,188 @@
+# Cursor Rules — Unified AWS Bedrock Controller (Go / AWS SDK for Go v2)
+
+## Project purpose
+- Build a **single, unified Kubernetes controller** (one Go controller) to manage AWS Bedrock resources.
+- Language: Go (>= 1.22). SDK: **AWS SDK for Go v2** (pinned).
+- Iterative development: implement one thin slice at a time with **unit tests that must pass before advancing**.
+
+## Single source of truth & references
+- Primary API contracts come from the AWS SDK for Go v2 and official AWS docs.
+- Local reference code lives in **/references/**. Treat it as READ-ONLY. Never copy large chunks verbatim.
+- When using SDK types/clients, prefer exact imports from the **pinned** SDK version. Do not re-invent SDK types.
+
+## Repository layout (unified & minimal)
+- **/controller/**        # single controller: main.go, bedrock_client.go, reconcile.go, types.go (K8s types)
+- **/crd/**               # CRD YAMLs (apiextensions.k8s.io/v1)
+- **/cr/**                # example custom resources (YAML)
+- **/tests/**             # unit tests (ignored by Git per request)
+- **/references/**        # read-only reference repos & SDK snapshots (ignored by Git)
+- **Makefile**            # build, test, docker targets
+- **README.md**, **TASKS.md**, **.gitignore**, **go.mod**
+
+> Note: We are **not** using Kubebuilder or Operator SDK. The controller will use client-go/controller patterns directly (workqueue, informers, rate-limited retries).
+
+## Bootstrapping actions (execute once at project start)
+- If repo is empty, generate these files:
+  - **Makefile** (see “Makefile MUST provide”)
+  - **.gitignore** with entries:
+      /references/
+      /tests/
+      /bin/
+      /dist/
+      /vendor/
+      .DS_Store
+      .env
+      .idea
+      .vscode
+      coverage.*
+  - **go.mod** (module name asked interactively)
+  - **README.md** (one-page overview + quickstart)
+  - **TASKS.md** (task tracker; see “Tasking workflow & DoD”)
+- Initialize Git and first commit:
+  - Run: `git init -b main && git add . && git commit -m "chore: bootstrap unified bedrock controller"`
+- Create first CRD & example **skeletons** (empty minimal fields) so tests can compile.
+
+## Tasking workflow & definition of done (DoD)
+- From any complex user prompt, **create/append** to **TASKS.md** a checklist that Cursor will maintain.
+- Cursor may propose intermediate tasks, **but must ask before inserting or reordering**.
+- Each task must include:
+  - **Goal**, **Changed files**, **Tests to add/update**, **Exit criteria** (objective & verifiable).
+- **DoD** for every task:
+  - `go build` succeeds; linters pass; **unit tests exist & pass** for touched code;
+  - CRD and example CR updated **in lockstep** with controller/types;
+  - README/CHANGELOG snippet updated if public surface changes.
+
+## Iterative plan (four artifacts move together)
+For each iteration, update the following in lockstep:
+1) **Controller code** (`/controller/*.go`)
+2) **CRD YAML** (`/crd/*.yaml`)
+3) **Example CR** (`/cr/*.yaml`)
+4) **Makefile** (ensure targets run locally & for deploy)
+
+Cursor: when asked to add a feature, propose the **smallest vertical slice** that exercises all four, then wait for approval.
+
+## Quality gates & coding standards
+- Lint: `golangci-lint` default rules + govet + ineffassign. Fix or justify suppressions.
+- Formatting: `gofmt` / `goimports`.
+- Errors: wrap with `%w`; define sentinel errors for retryable cases.
+- Logging: structured (zap/logr or std lib structured). No `fmt.Println` in prod paths.
+- Concurrency: use client-go workqueue patterns; reconcile handlers must be **idempotent**.
+- Config: load AWS region/creds from env/IRSA; never log secrets.
+
+## AWS SDK for Go v2 usage rules
+- **Pin versions** in `go.mod` (no `latest`).
+- No network calls in **unit tests**. Define thin interfaces that wrap SDK clients; generate or hand-roll mocks.
+- Centralize client construction in `/controller/bedrock_client.go`.
+- Use context timeouts & retry middlewares; backoff with jitter on throttling.
+
+## Kubernetes controller best practices (no Kubebuilder/Operator SDK)
+- Use **client-go** informers/listers, SharedIndexInformer, and a **rate-limited workqueue**.
+- Reconcile handler: read Spec, observe external state, converge → update Status/Conditions.
+- **Finalizers**: add only when creating external resources; remove on clean teardown.
+- **Status vs Spec**: Spec = desired; Status = observed (conditions with reason/message).
+- RBAC: manage YAMLs under /crd or /cr (as needed for deployment), keep least privilege.
+- Emit K8s **Events** for user-visible transitions and errors.
+
+## Testing strategy
+- **Phase 1: Local unit tests (strictly offline)**
+  - Frameworks: `testing`, `testify/require`, `gomock` or `moq`.
+  - Test **pure logic** (diff/merge desired vs observed) and **reconcile** via fake informer cache & mocked AWS client.
+  - Golden files for YAML transformations under `/tests/testdata/`.
+- **Phase 2: Local cluster smoke tests (opt-in after unit tests pass)**
+  - When requested by the user, Cursor may assist by running **kubectl** commands (apply CRD/CR, inspect resources, logs) and **AWS CLI** calls (dry-run or low-risk `describe*`) to troubleshoot.
+  - These are **manual/integration** steps, not part of `make test`. Cursor must **ask first** and show commands it plans to run.
+
+## Makefile MUST provide
+_Local default target: macOS (darwin/arm64). Deploy target: Linux (linux/amd64)._
+
+- **Utilities**
+  - `make tidy`        → `go mod tidy`
+  - `make lint`        → `golangci-lint run`
+  - `make test`        → run unit tests with `-race -coverprofile=coverage.out`
+  - `make clean`       → remove build artifacts (dist/, bin/, coverage*)
+
+- **Builds**
+  - `make build-local`   → `GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(shell git describe --tags --always --dirty)" -o dist/controller-local ./controller`
+  - `make build-deploy`  → `GOOS=linux  GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(shell git describe --tags --always --dirty)" -o dist/controller ./controller`
+
+- **Docker**
+  - `make docker-local`  → `docker buildx build --platform darwin/arm64 -t <image>:local .`
+  - `make docker-deploy` → `docker buildx build --platform linux/amd64  -t <image>:<tag> .`
+
+- **Run**
+  - `make run`           → depends on **build-local**; runs the local binary using current `KUBECONFIG` with a clear warning if cluster access is detected.
+
+- **Manifests / Generate (no Kubebuilder)**
+  - `make crd-validate`  → validate `/crd/*.yaml` (e.g., using kubeconform/yamllint if installed; otherwise a placeholder).
+  - `make cr-sync`       → helper that ensures **/controller/types.go** and **/crd/*.yaml** stay in sync (Cursor-maintained task; see “CRD lockstep rules”).
+  - Note: We intentionally do **not** auto-generate CRDs from Go markers.
+
+## Cross-compilation & reproducible builds
+- **Local default**: `darwin/arm64` (Mac).
+- **Deploy target**: `linux/amd64`.
+- Use `-trimpath` and `-ldflags "-s -w"`; embed version via `-X main.version`.
+- CGO disabled by default for static-ish binaries; document and justify if enabling CGO.
+
+## CRD lockstep rules (no codegen)
+- **Source of truth**: CRD YAMLs under `/crd/*.yaml`.
+- Mirror the Spec/Status shapes in **`/controller/types.go`** (plain Go structs with `json` tags; no kubebuilder markers).
+- Any change to fields:
+  1) Update **CRD YAML** (validation schema, defaults, subresources).
+  2) Update **Go types** in `/controller/types.go`.
+  3) Update **reconcile** logic and **example CR** under `/cr/`.
+  4) Run `make crd-validate` and `make test`.
+- Cursor must modify **all related files in the same PR/diff** and annotate changes in **TASKS.md**.
+- Keep **status** subresource enabled and use standard **Conditions** (`type`, `status`, `reason`, `message`, `lastTransitionTime`).
+
+## Reference priority
+- Prefer reading exact files in:
+  - `@references/aws-sdk-go-v2/*`
+  - `@references/bedrock/*` (if present)
+- If a symbol is unclear, open the exact referenced file **and cite it in the PR description**.
+
+## Prompts & diff discipline
+- For any change request, produce:
+  - **Minimal diff** (only changed files),
+  - **New/updated unit tests**,
+  - If public API changed, update **CRD + example CR + README**.
+- Prefer editing specific files or selections. Avoid multi-file “big bangs” unless the task says so.
+
+## Non-functional requirements
+- Idempotency in reconcile loop (safe on retries).
+- Respect AWS quotas; exponential backoff with jitter on throttling.
+- Observability: structured logs + minimal metrics (reconcile count/duration, result, retries).
+- Security: no secrets in logs; least-privileged AWS policies.
+
+## Asking policy (Cursor must ask first)
+- Before moving to the next **MAJOR** step or inserting new tasks, ask:
+  - “Proposed next tasks: … Proceed? [y/N]”
+- If ambiguity exists (resource names, namespaces, AWS account/region), ask to confirm.
+
+## Initial task list (seed into TASKS.md on first run)
+- [ ] **Bootstrap repo** (Makefile, go.mod, .gitignore, README, TASKS.md; init Git; first commit)
+- [ ] **Define initial CRD**: `BedrockAgent` (minimal Spec/Status) in `/crd/bedrockagent.yaml` (status subresource enabled)
+- [ ] **Mirror types** in `/controller/types.go` to match CRD Spec/Status (json tags)
+- [ ] **Example CR** in `/cr/bedrockagent-sample.yaml` matching the CRD
+- [ ] **Controller skeleton** in `/controller/main.go` + `/controller/reconcile.go` + `/controller/bedrock_client.go` (client interface only; no real AWS calls)
+- [ ] **Unit tests** for reconcile logic with **mocked AWS client** and fake informer cache
+- [ ] **Makefile**: build-local, build-deploy, docker-local, docker-deploy, test, lint, run, crd-validate
+- [ ] **Run tests locally** (`make test`) and fix failures
+- [ ] **(Optional, ask first) Local cluster smoke**: apply CRD & sample CR via kubectl; inspect controller logs; optional AWS CLI `describe*` calls for read-only validation
+- [ ] Plan next vertical slice (e.g., KnowledgeBase, Guardrails, InferenceProfiles), then repeat the 4-artifact loop
+
+## Commit & PR hygiene
+- Conventional commits (feat:, fix:, chore:, docs:, refactor:, test:, ci:).
+- Each PR references tasks completed from **TASKS.md**; include rationale and links to referenced SDK files.
+- No failing tests in PRs; if flaky, mark and create a follow-up task to deflake.
+
+## Guardrails & constraints
+- No network calls in **unit** tests.
+- Don’t bypass lint rules without comment.
+- Keep public API changes explicit; never silently mutate CRD schemas.
+- Keep `/tests/` and `/references/` **out of Git**, as requested.
+
+## What to do now (Cursor)
+- If repo is empty, propose **module name** and **image name**, then:
+  - Generate **Makefile**, **go.mod**, **.gitignore**, **README.md**, **TASKS.md**, minimal CRD + example CR, and controller skeleton.
+  - Ask before adding extra tooling (golangci-lint config, kubeconform, etc.).
+- After confirmation, execute the “Bootstrap repo” task and mark it done in **TASKS.md**, then propose the next two tasks.
