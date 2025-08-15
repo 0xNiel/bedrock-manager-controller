@@ -74,7 +74,7 @@ spec:
   agent:
     name: "CustomerServiceAgent"
     description: "AI agent for customer service"
-    foundationModel: "anthropic.claude-v2"
+    foundationModel: "amazon.nova-micro-v1:0"
     autoPrepare: true
     instruction: "You are a helpful customer service agent."
 ```
@@ -150,13 +150,83 @@ make cr-sync
 
 ## Configuration
 
-### AWS Credentials
+### AWS IAM Roles Setup
 
-The controller supports multiple AWS credential sources:
+**IMPORTANT**: This controller requires **TWO separate IAM roles**:
+
+#### 1. Controller IAM Role (for Kubernetes controller to call AWS APIs)
+
+**Purpose**: Allows the controller pod to make AWS Bedrock API calls
+
+**For EKS with IRSA** (Recommended):
+```bash
+# 1. Create IAM role for the controller
+aws iam create-role --role-name BedrockControllerRole --assume-role-policy-document '{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR_ACCOUNT:oidc-provider/oidc.eks.YOUR_REGION.amazonaws.com/id/YOUR_CLUSTER_ID"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.YOUR_REGION.amazonaws.com/id/YOUR_CLUSTER_ID:sub": "system:serviceaccount:bedrock-system:bedrock-controller",
+          "oidc.eks.YOUR_REGION.amazonaws.com/id/YOUR_CLUSTER_ID:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}'
+
+# 2. Attach Bedrock permissions to controller role
+aws iam attach-role-policy --role-name BedrockControllerRole --policy-arn arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+
+# 3. Update deploy/serviceaccount.yaml with the role ARN:
+#    eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_ACCOUNT:role/BedrockControllerRole
+```
+
+**For local development or non-EKS**:
+- AWS credentials via `~/.aws/credentials`
 - Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
-- IAM roles for service accounts (IRSA)
-- Instance profiles
-- Shared credentials file
+- EC2 instance profiles
+
+#### 2. Agent Execution Role (for Bedrock agents to assume when running)
+
+**Purpose**: The role that Bedrock agents assume to access other AWS services
+
+```bash
+# 1. Create IAM role for Bedrock agents
+aws iam create-role --role-name AmazonBedrockExecutionRoleForAgents --assume-role-policy-document '{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "bedrock.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "YOUR_ACCOUNT_ID"
+        }
+      }
+    }
+  ]
+}'
+
+# 2. Attach basic Bedrock permissions
+aws iam attach-role-policy --role-name AmazonBedrockExecutionRoleForAgents --policy-arn arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+
+# 3. Use this role ARN in your BedrockResource CRs:
+#    spec.agent.agentResourceRoleArn: arn:aws:iam::YOUR_ACCOUNT:role/AmazonBedrockExecutionRoleForAgents
+```
+
+**Replace placeholders**:
+- `YOUR_ACCOUNT`: Your AWS account ID
+- `YOUR_REGION`: Your AWS region (e.g., us-east-1)
+- `YOUR_CLUSTER_ID`: Your EKS cluster OIDC issuer ID
 
 ### Environment Variables
 
@@ -169,14 +239,20 @@ The controller supports multiple AWS credential sources:
 ```
 .
 ├── controller/          # Controller implementation
-│   ├── main.go         # Main entry point
 │   ├── reconcile.go    # Reconciliation logic
 │   ├── bedrock_client.go # AWS Bedrock client wrapper
 │   └── types.go        # Kubernetes types
 ├── crd/                # Custom Resource Definitions
 ├── cr/                 # Example Custom Resources
+├── deploy/             # Kubernetes deployment manifests
+│   ├── deployment.yaml # Controller deployment
+│   ├── rbac.yaml      # RBAC configuration
+│   ├── serviceaccount.yaml # Service account with IRSA
+│   └── README.md      # Deployment guide
 ├── references/         # Read-only reference code (gitignored)
 ├── tests/              # Unit tests (gitignored)
+├── main.go            # Main entry point
+├── Dockerfile         # Container image definition
 ├── Makefile           # Build and development targets
 └── README.md          # This file
 ```

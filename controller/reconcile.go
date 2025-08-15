@@ -3,12 +3,14 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/bedrockagent"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockagent/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 )
@@ -18,6 +20,7 @@ type Reconciler struct {
 	BedrockClient BedrockClient
 	Scheme        *runtime.Scheme
 	Recorder      record.EventRecorder
+	RestClient    rest.Interface
 }
 
 // ReconcileResult represents the result of a reconciliation
@@ -48,7 +51,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, resource *BedrockResource) R
 	// Add finalizer if not present
 	if !containsFinalizer(resource, BedrockResourceFinalizer) {
 		resource.Finalizers = append(resource.Finalizers, BedrockResourceFinalizer)
-		// The controller framework will handle updating the resource
+		// Update the resource to persist the finalizer
+		if err := r.updateResource(ctx, resource); err != nil {
+			log.Error(err, "Failed to add finalizer")
+			return ReconcileResult{Error: err, RequeueAfter: time.Second * 10}
+		}
 		return ReconcileResult{Requeue: true}
 	}
 
@@ -158,7 +165,7 @@ func (r *Reconciler) updateAgent(ctx context.Context, resource *BedrockResource,
 
 	// Check if update is needed by comparing specs
 	if !AgentNeedsUpdate(resource.Spec.Agent, existingAgent) {
-		log.V(1).Info("Agent is up to date, no changes needed")
+		log.V(1).Info("Agent is up to date, no changes needed", "awsAgentStatus", existingAgent.AgentStatus)
 
 		// Update status from AWS agent
 		agentStatus := convertAWSAgentToStatus(existingAgent)
@@ -166,8 +173,11 @@ func (r *Reconciler) updateAgent(ctx context.Context, resource *BedrockResource,
 		resource.Status.AgentVersion = agentStatus.AgentVersion
 		resource.Status.Phase = agentStatus.Phase
 
+		log.V(1).Info("Updated phase from AWS status", "awsStatus", existingAgent.AgentStatus, "newPhase", agentStatus.Phase)
+
 		// Check if agent should be prepared
 		if resource.Spec.Agent.AutoPrepare && existingAgent.AgentStatus == types.AgentStatusNotPrepared {
+			log.Info("Agent needs preparation", "currentStatus", existingAgent.AgentStatus)
 			return r.prepareAgent(ctx, resource)
 		}
 
@@ -284,8 +294,17 @@ func (r *Reconciler) handleDeletion(ctx context.Context, resource *BedrockResour
 		log.Info("Knowledge base deletion not yet implemented")
 	}
 
-	// Remove finalizer
+	// Remove finalizer and update the resource
 	resource.Finalizers = removeFinalizer(resource.Finalizers, BedrockResourceFinalizer)
+
+	// Only update if we have a RestClient (skip in unit tests)
+	if r.RestClient != nil {
+		if err := r.updateResource(ctx, resource); err != nil {
+			log.Error(err, "Failed to remove finalizer")
+			return ReconcileResult{Error: err, RequeueAfter: time.Second * 10}
+		}
+	}
+
 	r.Recorder.Event(resource, "Normal", "Deleted", "Resource deleted successfully")
 
 	return ReconcileResult{}
@@ -300,6 +319,12 @@ func (r *Reconciler) deleteAgent(ctx context.Context, resource *BedrockResource)
 		AgentId: resource.Status.AgentId,
 	})
 	if err != nil {
+		// Check if the agent is already deleted (404 error)
+		if isResourceNotFoundError(err) {
+			log.Info("Agent already deleted (not found in AWS)")
+			return nil // Treat as successful deletion
+		}
+
 		errMsg := fmt.Sprintf("Failed to delete agent: %v", err)
 		log.Error(err, "Failed to delete agent")
 		r.updateCondition(resource, ConditionReady, metav1.ConditionFalse, ReasonAWSError, errMsg)
@@ -417,4 +442,68 @@ func AgentNeedsUpdate(spec *AgentSpec, agent *types.Agent) bool {
 	// TODO: Add more detailed comparison logic for other fields
 
 	return false
+}
+
+// UpdateResourceStatus updates the status of a BedrockResource in Kubernetes
+func (r *Reconciler) UpdateResourceStatus(ctx context.Context, resource *BedrockResource) error {
+	// Create a copy of the resource with only the required fields for status update
+	statusUpdate := &BedrockResource{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "bedrock.aws.example.com/v1",
+			Kind:       "BedrockResource",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            resource.Name,
+			Namespace:       resource.Namespace,
+			ResourceVersion: resource.ResourceVersion,
+		},
+		Status: resource.Status,
+	}
+
+	result := r.RestClient.Put().
+		Namespace(resource.Namespace).
+		Resource("bedrockresources").
+		Name(resource.Name).
+		SubResource("status").
+		Body(statusUpdate).
+		Do(ctx)
+
+	return result.Error()
+}
+
+// isResourceNotFoundError checks if the error is a ResourceNotFoundException from AWS
+func isResourceNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for AWS ResourceNotFoundException
+	return strings.Contains(err.Error(), "ResourceNotFoundException") ||
+		strings.Contains(err.Error(), "StatusCode: 404")
+}
+
+// updateResource updates the resource's metadata/spec (not status)
+func (r *Reconciler) updateResource(ctx context.Context, resource *BedrockResource) error {
+	// Create a copy for the update
+	updateResource := &BedrockResource{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "bedrock.aws.example.com/v1",
+			Kind:       "BedrockResource",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            resource.Name,
+			Namespace:       resource.Namespace,
+			ResourceVersion: resource.ResourceVersion,
+			Finalizers:      resource.Finalizers,
+		},
+		Spec: resource.Spec,
+	}
+
+	result := r.RestClient.Put().
+		Namespace(resource.Namespace).
+		Resource("bedrockresources").
+		Name(resource.Name).
+		Body(updateResource).
+		Do(ctx)
+
+	return result.Error()
 }

@@ -9,7 +9,7 @@ spec:
   agent:
     name: "CustomerServiceAgent"
     description: "AI agent for customer service interactions"
-    foundationModel: "anthropic.claude-3-haiku-20240307-v1:0"
+    foundationModel: "amazon.nova-micro-v1:0"
     instruction: |
       You are a helpful customer service agent for an e-commerce company. 
       You should:
@@ -17,6 +17,7 @@ spec:
       - Help customers with order inquiries, returns, and general questions
       - If you cannot help with a request, escalate to a human agent
       - Always ask for order numbers when discussing specific orders
+    agentResourceRoleArn: "arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForAgents_TestRole"
     autoPrepare: true
     idleSessionTTLInSeconds: 600
     tags:

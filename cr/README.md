@@ -63,15 +63,18 @@ A placeholder for knowledge base configuration. Full implementation will be adde
 ### Agent Configuration
 
 - **foundationModel**: Use valid Bedrock model IDs. Examples:
-  - `anthropic.claude-3-haiku-20240307-v1:0` (faster, cost-effective)
-  - `anthropic.claude-3-sonnet-20240229-v1:0` (balanced performance)
-  - `anthropic.claude-3-opus-20240229-v1:0` (highest capability)
+  - `amazon.nova-micro-v1:0` (cost-effective, fast)
+  - `amazon.nova-lite-v1:0` (balanced performance)  
+  - `amazon.nova-pro-v1:0` (highest capability)
+  - `anthropic.claude-3-haiku-20240307-v1:0` (legacy, faster)
+  - `anthropic.claude-3-sonnet-20240229-v1:0` (legacy, balanced)
+  - `anthropic.claude-3-opus-20240229-v1:0` (legacy, highest capability)
 
 - **autoPrepare**: When `true`, the controller automatically calls PrepareAgent after creation or updates
 
 - **idleSessionTTLInSeconds**: Session timeout (60-3600 seconds)
 
-- **agentResourceRoleArn**: IAM role that the agent assumes. Must have permissions for:
+- **agentResourceRoleArn**: IAM role that the agent assumes (e.g., `arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForAgents_TestRole`). Must have permissions for:
   - Bedrock model invocation
   - Any action groups or knowledge bases
   - CloudWatch logging

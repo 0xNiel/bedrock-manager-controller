@@ -15,7 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -30,7 +30,30 @@ import (
 
 var (
 	version = "dev"
+	// Custom scheme with our types registered
+	customScheme = runtime.NewScheme()
 )
+
+func init() {
+	// Add the default Kubernetes types to our scheme
+	_ = scheme.AddToScheme(customScheme)
+
+	// Register our custom types for both versioned and internal versions
+	gv := schema.GroupVersion{Group: "bedrock.aws.example.com", Version: "v1"}
+	customScheme.AddKnownTypes(gv,
+		&controller.BedrockResource{},
+		&controller.BedrockResourceList{},
+	)
+
+	// Register for internal version
+	gvInternal := schema.GroupVersion{Group: "bedrock.aws.example.com", Version: runtime.APIVersionInternal}
+	customScheme.AddKnownTypes(gvInternal,
+		&controller.BedrockResource{},
+		&controller.BedrockResourceList{},
+	)
+
+	metav1.AddToGroupVersion(customScheme, gv)
+}
 
 // ControllerConfig holds the configuration for the controller
 type ControllerConfig struct {
@@ -76,20 +99,13 @@ func main() {
 	// Create event recorder
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme,
+	recorder := eventBroadcaster.NewRecorder(customScheme,
 		corev1.EventSource{
 			Component: "bedrock-controller",
 		})
 
-	// Create reconciler
-	reconciler := &controller.Reconciler{
-		BedrockClient: bedrockClient,
-		Scheme:        scheme.Scheme,
-		Recorder:      recorder,
-	}
-
-	// Create controller
-	ctrl, err := createController(restConfig, reconciler, config.Workers)
+	// Create controller (which will create the reconciler internally)
+	ctrl, err := createController(restConfig, bedrockClient, recorder, config.Workers)
 	if err != nil {
 		klog.Fatalf("Failed to create controller: %v", err)
 	}
@@ -122,9 +138,18 @@ func createKubernetesClient(kubeconfigPath string) (kubernetes.Interface, *rest.
 	var err error
 
 	if kubeconfigPath != "" {
+		// Use explicit kubeconfig path
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	} else {
+		// Try in-cluster config first, then fall back to default kubeconfig
 		config, err = rest.InClusterConfig()
+		if err != nil {
+			// Fall back to default kubeconfig using loading rules
+			loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+			configOverrides := &clientcmd.ConfigOverrides{}
+			config, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+				loadingRules, configOverrides).ClientConfig()
+		}
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build config: %w", err)
@@ -160,7 +185,7 @@ type Controller struct {
 }
 
 // createController creates a new controller instance
-func createController(config *rest.Config, reconciler *controller.Reconciler, workers int) (*Controller, error) {
+func createController(config *rest.Config, bedrockClient controller.BedrockClient, recorder record.EventRecorder, workers int) (*Controller, error) {
 	// Create a REST client for our custom resource
 	crdConfig := *config
 	crdConfig.ContentConfig.GroupVersion = &schema.GroupVersion{
@@ -168,12 +193,20 @@ func createController(config *rest.Config, reconciler *controller.Reconciler, wo
 		Version: "v1",
 	}
 	crdConfig.APIPath = "/apis"
-	crdConfig.NegotiatedSerializer = serializer.NewCodecFactory(scheme.Scheme)
+	crdConfig.NegotiatedSerializer = serializer.NewCodecFactory(customScheme)
 	crdConfig.UserAgent = rest.DefaultKubernetesUserAgent()
 
 	restClient, err := rest.RESTClientFor(&crdConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create REST client: %w", err)
+	}
+
+	// Create reconciler
+	reconciler := &controller.Reconciler{
+		BedrockClient: bedrockClient,
+		Scheme:        customScheme,
+		Recorder:      recorder,
+		RestClient:    restClient,
 	}
 
 	// Create list/watch client for BedrockResource
@@ -308,6 +341,12 @@ func (c *Controller) syncHandler(ctx context.Context, key string) error {
 
 	// Reconcile the resource
 	result := c.reconciler.Reconcile(resourceCtx, resourceCopy)
+
+	// Update resource status in Kubernetes
+	if err := c.reconciler.UpdateResourceStatus(resourceCtx, resourceCopy); err != nil {
+		klog.FromContext(ctx).Error(err, "Failed to update resource status")
+		// Don't return the error - we'll retry on the next reconcile
+	}
 
 	// Handle requeue
 	if result.Error != nil {

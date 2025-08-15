@@ -117,23 +117,7 @@ spec:
                 default: "us-east-1"
                 description: "AWS region for the Bedrock resource"
                 
-            # Validation: exactly one resource type must be specified
-            oneOf:
-            - properties:
-                type:
-                  const: agent
-              required:
-              - agent
-            - properties:
-                type:
-                  const: inferenceProfile
-              required:
-              - inferenceProfile
-            - properties:
-                type:
-                  const: knowledgeBase
-              required:
-              - knowledgeBase
+            # Note: Validation for exactly one resource type is handled by the controller
               
           status:
             type: object

@@ -95,6 +95,27 @@ dev-setup: tidy ## Set up development environment
 dev-check: tidy lint test crd-validate ## Run all development checks
 	@echo "✅ All development checks passed"
 
+# Deployment
+.PHONY: deploy-local
+deploy-local: docker-local ## Deploy to local Kubernetes cluster
+	@echo "🚀 Deploying to local cluster..."
+	kubectl create namespace bedrock-system --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -f crd/bedrockresource.yaml
+	kubectl apply -f deploy/serviceaccount.yaml
+	kubectl apply -f deploy/rbac.yaml
+	kubectl apply -f deploy/deployment.yaml
+	@echo "✅ Deployment complete. Check status with: kubectl get pods -n bedrock-system"
+
+.PHONY: undeploy
+undeploy: ## Remove controller from cluster
+	@echo "🗑️  Removing controller from cluster..."
+	kubectl delete -f deploy/deployment.yaml --ignore-not-found=true
+	kubectl delete -f deploy/rbac.yaml --ignore-not-found=true
+	kubectl delete -f deploy/serviceaccount.yaml --ignore-not-found=true
+	kubectl delete -f crd/bedrockresource.yaml --ignore-not-found=true
+	kubectl delete namespace bedrock-system --ignore-not-found=true
+	@echo "✅ Cleanup complete"
+
 .PHONY: all
 all: clean tidy lint test build-local build-deploy ## Run full build pipeline
 	@echo "✅ Full build pipeline complete"

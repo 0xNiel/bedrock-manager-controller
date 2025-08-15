@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bedrock-controller
+  namespace: bedrock-system
+  labels:
+    app: bedrock-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bedrock-controller
+  template:
+    metadata:
+      labels:
+        app: bedrock-controller
+    spec:
+      serviceAccountName: bedrock-controller
+      containers:
+      - name: controller
+        image: bedrock-controller:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+        # Alternative: Use AWS credentials from secret instead of IRSA
+        # - name: AWS_ACCESS_KEY_ID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: aws-credentials
+        #       key: access-key-id
+        # - name: AWS_SECRET_ACCESS_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: aws-credentials
+        #       key: secret-access-key
+        args:
+        - --kubeconfig=
+        - --region=us-east-1
+        - --v=2
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
