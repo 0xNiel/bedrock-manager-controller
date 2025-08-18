@@ -1,0 +1,20 @@
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: multi-region-claude
+  namespace: default
+spec:
+  type: inferenceProfile
+  region: us-east-1
+  inferenceProfile:
+    name: "MultiRegionClaude"
+    description: "Custom inference profile copying from system-defined cross-region Claude profile"
+    modelSource:
+      # Copy from a system-defined inference profile that spans multiple regions
+      # This example shows copying from an existing inference profile rather than a foundation model
+      copyFrom: "arn:aws:bedrock:us-east-1::inference-profile/anthropic.claude-3-5-sonnet-20241022-v2:0-cross-region"
+    tags:
+      Environment: "staging"
+      Team: "platform"
+      Purpose: "high-availability"
+      CostCenter: "research"

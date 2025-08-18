@@ -87,9 +87,12 @@ spec:
                         maximum: 999
                     description: "Memory configuration for the agent"
               
-              # Inference Profile configuration (future implementation)
+              # Inference Profile configuration
               inferenceProfile:
                 type: object
+                required:
+                - name
+                - modelSource
                 properties:
                   name:
                     type: string
@@ -97,11 +100,30 @@ spec:
                   description:
                     type: string
                     description: "Description of the inference profile"
-                  # Additional inference profile fields will be added
+                  modelSource:
+                    type: object
+                    required:
+                    - copyFrom
+                    properties:
+                      copyFrom:
+                        type: string
+                        description: "ARN of the foundation model or system-defined inference profile to copy from"
+                        pattern: "^arn:aws[a-z0-9-]*:bedrock:[a-z0-9-]*:[0-9]*:(foundation-model|inference-profile)/.+$"
+                    description: "Model source configuration for the inference profile"
+                  tags:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: "AWS tags to apply to the inference profile"
                 
-              # Knowledge Base configuration (future implementation)  
+              # Knowledge Base configuration
               knowledgeBase:
                 type: object
+                required:
+                - name
+                - roleArn
+                - embeddingModelArn
+                - vectorStoreType
                 properties:
                   name:
                     type: string
@@ -109,7 +131,92 @@ spec:
                   description:
                     type: string
                     description: "Description of the knowledge base"
-                  # Additional knowledge base fields will be added
+                  roleArn:
+                    type: string
+                    description: "IAM role ARN that the Knowledge Base uses to access other AWS services"
+                  embeddingModelArn:
+                    type: string
+                    description: "ARN of the model used for generating embeddings"
+                  vectorStoreType:
+                    type: string
+                    enum:
+                    - OPENSEARCH_SERVERLESS
+                    - PINECONE
+                    - REDIS_ENTERPRISE_CLOUD
+                    description: "Type of vector database to use"
+                  opensearchServerlessConfiguration:
+                    type: object
+                    properties:
+                      collectionArn:
+                        type: string
+                        description: "ARN of the OpenSearch Serverless collection"
+                      vectorIndexName:
+                        type: string
+                        description: "Name of the vector index"
+                      vectorField:
+                        type: string
+                        description: "Name of the field containing the vector"
+                      textField:
+                        type: string
+                        description: "Name of the field containing the text content"
+                      metadataField:
+                        type: string
+                        description: "Name of the field containing metadata"
+                  dataSources:
+                    type: array
+                    description: "Data sources to be associated with this knowledge base"
+                    items:
+                      type: object
+                      required:
+                      - name
+                      - dataSourceType
+                      properties:
+                        name:
+                          type: string
+                          description: "Name of the data source"
+                        description:
+                          type: string
+                          description: "Description of the data source"
+                        dataSourceType:
+                          type: string
+                          enum:
+                          - S3
+                          - WEB_CRAWLER
+                          - CONFLUENCE
+                          - SALESFORCE
+                          - SHAREPOINT
+                          description: "Type of data source"
+                        s3Configuration:
+                          type: object
+                          properties:
+                            bucketArn:
+                              type: string
+                              description: "ARN of the S3 bucket containing the data"
+                            inclusionPrefixes:
+                              type: array
+                              items:
+                                type: string
+                              description: "S3 prefixes to include in the data source"
+                            exclusionPrefixes:
+                              type: array
+                              items:
+                                type: string
+                              description: "S3 prefixes to exclude from the data source"
+                            inclusionPatterns:
+                              type: array
+                              items:
+                                type: string
+                              description: "File patterns to include (e.g., '*.pdf', '*.txt')"
+                            exclusionPatterns:
+                              type: array
+                              items:
+                                type: string
+                              description: "File patterns to exclude"
+                  tags:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: "AWS tags to apply to the knowledge base"
                 
               # Common configuration
               region:
@@ -179,6 +286,71 @@ spec:
                 type: string
                 format: date-time
                 description: "When the agent was last prepared"
+                
+              # Inference Profile-specific status
+              inferenceProfileId:
+                type: string
+                description: "AWS Inference Profile ID when type is inferenceProfile"
+              inferenceProfileArn:
+                type: string
+                description: "AWS Inference Profile ARN when type is inferenceProfile"
+              inferenceProfileStatus:
+                type: string
+                description: "AWS Inference Profile status"
+              inferenceProfileType:
+                type: string
+                description: "AWS Inference Profile type"
+                
+              # Knowledge Base status fields
+              knowledgeBaseId:
+                type: string
+                description: "AWS Knowledge Base ID when type is knowledgeBase"
+              knowledgeBaseArn:
+                type: string
+                description: "AWS Knowledge Base ARN when type is knowledgeBase"
+              knowledgeBaseStatus:
+                type: string
+                description: "AWS Knowledge Base status"
+              dataSourceIds:
+                type: array
+                items:
+                  type: string
+                description: "IDs of associated data sources"
+              dataSources:
+                type: array
+                description: "Detailed information about data sources"
+                items:
+                  type: object
+                  required:
+                  - name
+                  - dataSourceId
+                  - status
+                  properties:
+                    name:
+                      type: string
+                      description: "Name of the data source"
+                    dataSourceId:
+                      type: string
+                      description: "AWS data source ID"
+                    status:
+                      type: string
+                      description: "Current status of the data source"
+                    lastIngestionJobId:
+                      type: string
+                      description: "ID of the most recent ingestion job"
+                    lastIngestionJobStatus:
+                      type: string
+                      description: "Status of the most recent ingestion job"
+                    failureReasons:
+                      type: array
+                      items:
+                        type: string
+                      description: "Failure reasons for data source operations"
+              failureReasons:
+                type: array
+                items:
+                  type: string
+                description: "Failure reasons for knowledge base operations"
                 
               # Generic resource identifiers
               resourceId:

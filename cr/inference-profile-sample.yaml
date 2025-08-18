@@ -8,5 +8,12 @@ spec:
   region: us-east-1
   inferenceProfile:
     name: "CustomInferenceProfile"
-    description: "Custom inference configuration for optimized performance"
-    # Additional inference profile fields will be implemented in future iterations
+    description: "Custom inference configuration for optimized performance and cost tracking"
+    modelSource:
+      # Copy from an existing foundation model or system-defined inference profile
+      # Example foundation model ARN for Nova Micro
+      copyFrom: "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0"
+    tags:
+      Environment: "production"
+      Team: "ai-platform"
+      Purpose: "cost-tracking"

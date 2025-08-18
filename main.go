@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockagent"
 	"github.com/odnielgonzalez/bedrock-manager-controller/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -172,8 +173,12 @@ func createBedrockClient(ctx context.Context, region string) (controller.Bedrock
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	client := bedrockagent.NewFromConfig(cfg)
-	return controller.NewBedrockClient(client), nil
+	// Create both AWS SDK clients
+	agentClient := bedrockagent.NewFromConfig(cfg)
+	bedrockClient := bedrock.NewFromConfig(cfg)
+
+	// Create our unified client wrapper
+	return controller.NewBedrockClient(agentClient, bedrockClient, cfg), nil
 }
 
 // Controller represents our custom controller

@@ -137,7 +137,21 @@ type InferenceProfileSpec struct {
 	// +optional
 	Description *string `json:"description,omitempty"`
 
-	// Additional fields will be added in future iterations
+	// ModelSource specifies the foundation model or system-defined inference profile
+	// that this inference profile will track metrics and costs for
+	ModelSource InferenceProfileModelSource `json:"modelSource"`
+
+	// Tags to apply to the inference profile
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
+}
+
+// InferenceProfileModelSource contains information about the model or system-defined
+// inference profile that is the source for an inference profile
+type InferenceProfileModelSource struct {
+	// CopyFrom is the ARN of the model or system-defined inference profile
+	// that is the source for the inference profile
+	CopyFrom string `json:"copyFrom"`
 }
 
 // KnowledgeBaseSpec defines the configuration for a Bedrock Knowledge Base
@@ -149,7 +163,109 @@ type KnowledgeBaseSpec struct {
 	// +optional
 	Description *string `json:"description,omitempty"`
 
-	// Additional fields will be added in future iterations
+	// RoleArn is the IAM role ARN that the Knowledge Base uses to access other AWS services
+	RoleArn string `json:"roleArn"`
+
+	// EmbeddingModelArn is the ARN of the model used for generating embeddings
+	EmbeddingModelArn string `json:"embeddingModelArn"`
+
+	// VectorStoreType defines the type of vector database to use
+	// +kubebuilder:validation:Enum=OPENSEARCH_SERVERLESS;PINECONE;REDIS_ENTERPRISE_CLOUD
+	VectorStoreType string `json:"vectorStoreType"`
+
+	// OpenSearchServerlessConfiguration for OpenSearch Serverless (most common)
+	// +optional
+	OpenSearchServerlessConfiguration *OpenSearchServerlessConfig `json:"opensearchServerlessConfiguration,omitempty"`
+
+	// DataSources defines the data sources to be associated with this knowledge base
+	// +optional
+	DataSources []DataSourceSpec `json:"dataSources,omitempty"`
+
+	// Tags for resource organization and cost tracking
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
+}
+
+// OpenSearchServerlessConfig defines OpenSearch Serverless vector store settings
+type OpenSearchServerlessConfig struct {
+	// CollectionArn is the ARN of the OpenSearch Serverless collection
+	CollectionArn string `json:"collectionArn"`
+
+	// VectorIndexName is the name of the vector index
+	VectorIndexName string `json:"vectorIndexName"`
+
+	// VectorField is the name of the field containing the vector
+	VectorField string `json:"vectorField"`
+
+	// TextField is the name of the field containing the text content
+	TextField string `json:"textField"`
+
+	// MetadataField is the name of the field containing metadata
+	MetadataField string `json:"metadataField"`
+}
+
+// DataSourceSpec defines the configuration for a Knowledge Base data source
+type DataSourceSpec struct {
+	// Name is the name of the data source
+	Name string `json:"name"`
+
+	// Description of the data source
+	// +optional
+	Description *string `json:"description,omitempty"`
+
+	// DataSourceType defines the type of data source
+	// +kubebuilder:validation:Enum=S3;WEB_CRAWLER;CONFLUENCE;SALESFORCE;SHAREPOINT
+	DataSourceType string `json:"dataSourceType"`
+
+	// S3Configuration for S3 data sources
+	// +optional
+	S3Configuration *S3DataSourceConfig `json:"s3Configuration,omitempty"`
+}
+
+// S3DataSourceConfig defines S3-specific data source configuration
+type S3DataSourceConfig struct {
+	// BucketArn is the ARN of the S3 bucket containing the data
+	BucketArn string `json:"bucketArn"`
+
+	// InclusionPrefixes are the S3 prefixes to include in the data source
+	// +optional
+	InclusionPrefixes []string `json:"inclusionPrefixes,omitempty"`
+
+	// ExclusionPrefixes are the S3 prefixes to exclude from the data source
+	// +optional
+	ExclusionPrefixes []string `json:"exclusionPrefixes,omitempty"`
+
+	// InclusionPatterns are the file patterns to include (e.g., "*.pdf", "*.txt")
+	// +optional
+	InclusionPatterns []string `json:"inclusionPatterns,omitempty"`
+
+	// ExclusionPatterns are the file patterns to exclude
+	// +optional
+	ExclusionPatterns []string `json:"exclusionPatterns,omitempty"`
+}
+
+// DataSourceStatus represents the status of a data source
+type DataSourceStatus struct {
+	// Name is the name of the data source
+	Name string `json:"name"`
+
+	// DataSourceId is the AWS data source ID
+	DataSourceId string `json:"dataSourceId"`
+
+	// Status is the current status of the data source
+	Status string `json:"status"`
+
+	// LastIngestionJobId is the ID of the most recent ingestion job
+	// +optional
+	LastIngestionJobId *string `json:"lastIngestionJobId,omitempty"`
+
+	// LastIngestionJobStatus is the status of the most recent ingestion job
+	// +optional
+	LastIngestionJobStatus *string `json:"lastIngestionJobStatus,omitempty"`
+
+	// FailureReasons contains any failure reasons for data source operations
+	// +optional
+	FailureReasons []string `json:"failureReasons,omitempty"`
 }
 
 // BedrockResourceStatus defines the observed state of BedrockResource
@@ -182,6 +298,47 @@ type BedrockResourceStatus struct {
 	// PreparedAt indicates when the agent was last prepared
 	// +optional
 	PreparedAt *metav1.Time `json:"preparedAt,omitempty"`
+
+	// InferenceProfileId is the AWS Inference Profile ID when type is inferenceProfile
+	// +optional
+	InferenceProfileId *string `json:"inferenceProfileId,omitempty"`
+
+	// InferenceProfileArn is the AWS Inference Profile ARN when type is inferenceProfile
+	// +optional
+	InferenceProfileArn *string `json:"inferenceProfileArn,omitempty"`
+
+	// InferenceProfileStatus is the AWS Inference Profile status
+	// +optional
+	InferenceProfileStatus *string `json:"inferenceProfileStatus,omitempty"`
+
+	// InferenceProfileType is the AWS Inference Profile type (SYSTEM_DEFINED or APPLICATION)
+	// +optional
+	InferenceProfileType *string `json:"inferenceProfileType,omitempty"`
+
+	// KnowledgeBase-specific status fields
+	// KnowledgeBaseId is the AWS Knowledge Base ID when type is knowledgeBase
+	// +optional
+	KnowledgeBaseId *string `json:"knowledgeBaseId,omitempty"`
+
+	// KnowledgeBaseArn is the AWS Knowledge Base ARN when type is knowledgeBase
+	// +optional
+	KnowledgeBaseArn *string `json:"knowledgeBaseArn,omitempty"`
+
+	// KnowledgeBaseStatus is the AWS Knowledge Base status
+	// +optional
+	KnowledgeBaseStatus *string `json:"knowledgeBaseStatus,omitempty"`
+
+	// DataSourceIds contains the IDs of associated data sources
+	// +optional
+	DataSourceIds []string `json:"dataSourceIds,omitempty"`
+
+	// DataSources contains detailed information about data sources
+	// +optional
+	DataSources []DataSourceStatus `json:"dataSources,omitempty"`
+
+	// FailureReasons contains any failure reasons for knowledge base operations
+	// +optional
+	FailureReasons []string `json:"failureReasons,omitempty"`
 
 	// ResourceId is the generic AWS resource ID
 	// +optional
@@ -225,17 +382,18 @@ const (
 
 // Condition reasons
 const (
-	ReasonReconciling     = "Reconciling"
-	ReasonReconcileError  = "ReconcileError"
-	ReasonCreating        = "Creating"
-	ReasonCreated         = "Created"
-	ReasonPreparing       = "Preparing"
-	ReasonPrepared        = "Prepared"
-	ReasonUpdating        = "Updating"
-	ReasonDeleting        = "Deleting"
-	ReasonFailed          = "Failed"
-	ReasonAWSError        = "AWSError"
-	ReasonValidationError = "ValidationError"
+	ReasonReconciling      = "Reconciling"
+	ReasonReconcileSuccess = "ReconcileSuccess"
+	ReasonReconcileError   = "ReconcileError"
+	ReasonCreating         = "Creating"
+	ReasonCreated          = "Created"
+	ReasonPreparing        = "Preparing"
+	ReasonPrepared         = "Prepared"
+	ReasonUpdating         = "Updating"
+	ReasonDeleting         = "Deleting"
+	ReasonFailed           = "Failed"
+	ReasonAWSError         = "AWSError"
+	ReasonValidationError  = "ValidationError"
 )
 
 // DeepCopyObject implements runtime.Object interface
@@ -403,6 +561,20 @@ func (ips *InferenceProfileSpec) DeepCopyInto(out *InferenceProfileSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	// ModelSource is not a pointer, so simple assignment is fine
+	out.ModelSource = ips.ModelSource
+	if ips.Tags != nil {
+		in, out := &ips.Tags, &out.Tags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+}
+
+// DeepCopyInto copies all properties of InferenceProfileModelSource
+func (ipms *InferenceProfileModelSource) DeepCopyInto(out *InferenceProfileModelSource) {
+	*out = *ipms
 }
 
 // DeepCopyInto copies all properties of KnowledgeBaseSpec
@@ -412,6 +584,90 @@ func (kbs *KnowledgeBaseSpec) DeepCopyInto(out *KnowledgeBaseSpec) {
 		in, out := &kbs.Description, &out.Description
 		*out = new(string)
 		**out = **in
+	}
+	if kbs.OpenSearchServerlessConfiguration != nil {
+		in, out := &kbs.OpenSearchServerlessConfiguration, &out.OpenSearchServerlessConfiguration
+		*out = new(OpenSearchServerlessConfig)
+		(*in).DeepCopyInto(*out)
+	}
+	if kbs.DataSources != nil {
+		in, out := &kbs.DataSources, &out.DataSources
+		*out = make([]DataSourceSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if kbs.Tags != nil {
+		in, out := &kbs.Tags, &out.Tags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+}
+
+// DeepCopyInto copies all properties of OpenSearchServerlessConfig
+func (ossc *OpenSearchServerlessConfig) DeepCopyInto(out *OpenSearchServerlessConfig) {
+	*out = *ossc
+}
+
+// DeepCopyInto copies all properties of DataSourceSpec
+func (ds *DataSourceSpec) DeepCopyInto(out *DataSourceSpec) {
+	*out = *ds
+	if ds.Description != nil {
+		in, out := &ds.Description, &out.Description
+		*out = new(string)
+		**out = **in
+	}
+	if ds.S3Configuration != nil {
+		in, out := &ds.S3Configuration, &out.S3Configuration
+		*out = new(S3DataSourceConfig)
+		(*in).DeepCopyInto(*out)
+	}
+}
+
+// DeepCopyInto copies all properties of S3DataSourceConfig
+func (s3c *S3DataSourceConfig) DeepCopyInto(out *S3DataSourceConfig) {
+	*out = *s3c
+	if s3c.InclusionPrefixes != nil {
+		in, out := &s3c.InclusionPrefixes, &out.InclusionPrefixes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if s3c.ExclusionPrefixes != nil {
+		in, out := &s3c.ExclusionPrefixes, &out.ExclusionPrefixes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if s3c.InclusionPatterns != nil {
+		in, out := &s3c.InclusionPatterns, &out.InclusionPatterns
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if s3c.ExclusionPatterns != nil {
+		in, out := &s3c.ExclusionPatterns, &out.ExclusionPatterns
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+}
+
+// DeepCopyInto copies all properties of DataSourceStatus
+func (dss *DataSourceStatus) DeepCopyInto(out *DataSourceStatus) {
+	*out = *dss
+	if dss.LastIngestionJobId != nil {
+		in, out := &dss.LastIngestionJobId, &out.LastIngestionJobId
+		*out = new(string)
+		**out = **in
+	}
+	if dss.LastIngestionJobStatus != nil {
+		in, out := &dss.LastIngestionJobStatus, &out.LastIngestionJobStatus
+		*out = new(string)
+		**out = **in
+	}
+	if dss.FailureReasons != nil {
+		in, out := &dss.FailureReasons, &out.FailureReasons
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 }
 
@@ -448,6 +704,58 @@ func (brs *BedrockResourceStatus) DeepCopyInto(out *BedrockResourceStatus) {
 	if brs.PreparedAt != nil {
 		in, out := &brs.PreparedAt, &out.PreparedAt
 		*out = (*in).DeepCopy()
+	}
+	if brs.InferenceProfileId != nil {
+		in, out := &brs.InferenceProfileId, &out.InferenceProfileId
+		*out = new(string)
+		**out = **in
+	}
+	if brs.InferenceProfileArn != nil {
+		in, out := &brs.InferenceProfileArn, &out.InferenceProfileArn
+		*out = new(string)
+		**out = **in
+	}
+	if brs.InferenceProfileStatus != nil {
+		in, out := &brs.InferenceProfileStatus, &out.InferenceProfileStatus
+		*out = new(string)
+		**out = **in
+	}
+	if brs.InferenceProfileType != nil {
+		in, out := &brs.InferenceProfileType, &out.InferenceProfileType
+		*out = new(string)
+		**out = **in
+	}
+	if brs.KnowledgeBaseId != nil {
+		in, out := &brs.KnowledgeBaseId, &out.KnowledgeBaseId
+		*out = new(string)
+		**out = **in
+	}
+	if brs.KnowledgeBaseArn != nil {
+		in, out := &brs.KnowledgeBaseArn, &out.KnowledgeBaseArn
+		*out = new(string)
+		**out = **in
+	}
+	if brs.KnowledgeBaseStatus != nil {
+		in, out := &brs.KnowledgeBaseStatus, &out.KnowledgeBaseStatus
+		*out = new(string)
+		**out = **in
+	}
+	if brs.DataSourceIds != nil {
+		in, out := &brs.DataSourceIds, &out.DataSourceIds
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if brs.DataSources != nil {
+		in, out := &brs.DataSources, &out.DataSources
+		*out = make([]DataSourceStatus, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if brs.FailureReasons != nil {
+		in, out := &brs.FailureReasons, &out.FailureReasons
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if brs.ResourceId != nil {
 		in, out := &brs.ResourceId, &out.ResourceId

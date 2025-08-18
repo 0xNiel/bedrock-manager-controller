@@ -1,5 +1,4 @@
 /references/
-/tests/
 /bin/
 /dist/
 /vendor/
@@ -8,3 +7,5 @@
 .idea
 .vscode
 coverage.*
+.cursorrules
+

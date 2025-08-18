@@ -1,0 +1,35 @@
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: test-knowledge-base
+  namespace: default
+spec:
+  type: knowledgeBase
+  knowledgeBase:
+    name: "TestKnowledgeBase"
+    description: "Knowledge base for integration testing with automated OpenSearch index creation via AWS API"
+    roleArn: "arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForKnowledgeBase_TestRole"
+    embeddingModelArn: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1"
+    vectorStoreType: "OPENSEARCH_SERVERLESS"
+    opensearchServerlessConfiguration:
+      collectionArn: "arn:aws:aoss:us-east-1:REPLACE_ME_AWS_ACCOUNT_ID:collection/REPLACE_ME_COLLECTION_ID"
+      vectorIndexName: "bedrock-knowledge-base-default-index"
+      vectorField: "vector"
+      textField: "text"
+      metadataField: "metadata"
+    dataSources:
+    - name: "test-s3-documents"
+      description: "Test S3 data source with sample documents"
+      dataSourceType: "S3"
+      s3Configuration:
+        bucketArn: "arn:aws:s3:::bedrock-kb-test-data-REPLACE_ME_AWS_ACCOUNT_ID"
+        inclusionPrefixes:
+        - "documents/"
+        inclusionPatterns:
+        - "*.pdf"
+        - "*.txt"
+        - "*.md"
+    tags:
+      Environment: "test"
+      Purpose: "integration-testing"
+      CreatedBy: "bedrock-controller"

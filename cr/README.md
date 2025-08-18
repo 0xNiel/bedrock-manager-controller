@@ -99,3 +99,147 @@ Common tag patterns:
 - **Team**: Owning team identifier
 - **Purpose**: Use case or function
 - **Compliance**: Compliance requirements if any
+
+## Inference Profiles
+
+Inference Profiles enable cost tracking and metrics collection for foundation models. They allow you to:
+
+- Track usage and costs for specific models or teams
+- Create application-specific inference configurations
+- Copy from existing foundation models or system-defined profiles
+
+### Basic Inference Profile
+
+```yaml
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: my-cost-tracker
+spec:
+  type: inferenceProfile
+  inferenceProfile:
+    name: "MyCostTracker"
+    description: "Track usage for our application"
+    modelSource:
+      copyFrom: "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0"
+    tags:
+      Team: "ai-platform"
+      Purpose: "cost-tracking"
+```
+
+### Available Foundation Models
+
+Popular foundation model ARNs for `copyFrom`:
+
+**Amazon Nova Models:**
+- `arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0`
+- `arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0`
+- `arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0`
+
+**Anthropic Claude Models:**
+- `arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0`
+- `arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0`
+
+**System-Defined Inference Profiles:**
+- `arn:aws:bedrock:us-east-1::inference-profile/anthropic.claude-3-5-sonnet-20241022-v2:0-cross-region`
+
+### Model Source Options
+
+**copyFrom** can reference:
+1. **Foundation Models**: Direct model ARNs for single-region usage
+2. **System-Defined Inference Profiles**: Pre-configured cross-region profiles for high availability
+
+### Use Cases
+
+1. **Cost Tracking**: Monitor spending per team/application
+2. **Performance Analysis**: Collect metrics for specific use cases  
+3. **Multi-Region Deployments**: Use cross-region inference profiles for HA
+4. **Development vs Production**: Separate profiles for different environments
+
+## Knowledge Bases
+
+Knowledge Bases enable Retrieval-Augmented Generation (RAG) by storing and indexing documents as vector embeddings. They integrate with vector databases and can be used with Bedrock Agents for enhanced AI capabilities.
+
+### Basic Knowledge Base
+
+```yaml
+apiVersion: bedrock.aws.example.com/v1
+kind: BedrockResource
+metadata:
+  name: product-knowledge-base
+spec:
+  type: knowledgeBase
+  knowledgeBase:
+    name: "ProductKnowledgeBase"
+    description: "Knowledge base containing product information and FAQs"
+    roleArn: "arn:aws:iam::ACCOUNT:role/AmazonBedrockExecutionRoleForKnowledgeBase_TestRole"
+    embeddingModelArn: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1"
+    vectorStoreType: "OPENSEARCH_SERVERLESS"
+    opensearchServerlessConfiguration:
+      collectionArn: "arn:aws:aoss:us-east-1:ACCOUNT:collection/kb-collection"
+      vectorIndexName: "vector-index"
+      vectorField: "vector"
+      textField: "text"
+      metadataField: "metadata"
+```
+
+### Available Embedding Models
+
+Common embedding model ARNs for `embeddingModelArn`:
+
+**Amazon Titan Embedding Models:**
+- `arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1`
+- `arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0`
+- `arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-g1-text-02`
+
+**Cohere Embedding Models:**
+- `arn:aws:bedrock:us-east-1::foundation-model/cohere.embed-english-v3`
+- `arn:aws:bedrock:us-east-1::foundation-model/cohere.embed-multilingual-v3`
+
+### Vector Store Types
+
+Currently supported vector store types:
+
+1. **OPENSEARCH_SERVERLESS**: Amazon OpenSearch Serverless (recommended)
+   - Requires: `collectionArn`, `vectorIndexName`, field mappings
+   - Fully managed, auto-scaling
+   - Best for most use cases
+
+2. **PINECONE**: Pinecone vector database
+   - Requires: `connectionString`, `credentialsSecretArn`, field mappings
+   - Third-party managed service
+
+3. **REDIS_ENTERPRISE_CLOUD**: Redis Enterprise Cloud
+   - Requires: `endpoint`, `vectorIndexName`, `credentialsSecretArn`, field mappings
+   - High-performance option
+
+### IAM Role Requirements
+
+The `roleArn` must have permissions to:
+
+1. **OpenSearch Serverless** (if using):
+   - `aoss:APIAccessAll` on the collection
+   - `aoss:DashboardsAccessAll` for console access
+
+2. **Bedrock**:
+   - `bedrock:InvokeModel` for the embedding model
+   - `bedrock:GetFoundationModel` for model details
+
+3. **S3** (for data sources):
+   - `s3:GetObject` and `s3:ListBucket` on data source buckets
+
+### Field Mapping
+
+Vector stores require field mappings to organize data:
+
+- **vectorField**: Stores the embedding vectors
+- **textField**: Stores the original text content  
+- **metadataField**: Stores document metadata (source, chunk info, etc.)
+
+### Use Cases
+
+1. **Document Search**: Enable semantic search across enterprise documents
+2. **FAQ Systems**: Build intelligent FAQ bots with contextual responses
+3. **Customer Support**: Provide agents with relevant knowledge base articles
+4. **Code Documentation**: Search and reference code documentation and examples
+5. **Product Catalogs**: Enhance product recommendations with semantic search
