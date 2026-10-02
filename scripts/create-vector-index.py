@@ -5,10 +5,16 @@ import requests
 import boto3
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
+import os
 import sys
 
 # Configuration
-COLLECTION_ENDPOINT = "https://REPLACE_ME_COLLECTION_ID.us-east-1.aoss.amazonaws.com"
+# REPLACE ME: set COLLECTION_ENDPOINT to your OpenSearch Serverless collection endpoint
+# (printed by scripts/setup-kb-aws-resources.sh), e.g.
+#   COLLECTION_ENDPOINT=https://<collection-id>.us-east-1.aoss.amazonaws.com python3 scripts/create-vector-index.py
+COLLECTION_ENDPOINT = os.environ.get(
+    "COLLECTION_ENDPOINT", "https://REPLACE_ME_COLLECTION_ID.us-east-1.aoss.amazonaws.com"
+)
 INDEX_NAME = "test-vector-index"
 REGION = "us-east-1"
 
@@ -101,6 +107,10 @@ def create_index():
         return False
 
 if __name__ == "__main__":
+    if "REPLACE_ME" in COLLECTION_ENDPOINT:
+        print("❌ COLLECTION_ENDPOINT is not set. Export it to your collection endpoint and re-run.")
+        sys.exit(1)
+
     print("Setting up vector index for Knowledge Base testing...")
     
     try:

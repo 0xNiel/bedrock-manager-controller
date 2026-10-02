@@ -9,3 +9,7 @@
 coverage.*
 .cursorrules
 
+
+# Compiled binaries
+/bedrock-manager-controller
+/controller/controller

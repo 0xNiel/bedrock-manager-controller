@@ -4,9 +4,17 @@
 set -e
 
 # Configuration
-COLLECTION_ENDPOINT="https://REPLACE_ME_COLLECTION_ID.us-east-1.aoss.amazonaws.com"
+# REPLACE ME: set COLLECTION_ENDPOINT to your OpenSearch Serverless collection endpoint
+# (printed by scripts/setup-kb-aws-resources.sh), e.g.
+#   COLLECTION_ENDPOINT=https://<collection-id>.us-east-1.aoss.amazonaws.com ./scripts/create-vector-index.sh
+COLLECTION_ENDPOINT="${COLLECTION_ENDPOINT:-https://REPLACE_ME_COLLECTION_ID.us-east-1.aoss.amazonaws.com}"
 INDEX_NAME="test-vector-index"
 REGION="us-east-1"
+
+if [[ "$COLLECTION_ENDPOINT" == *REPLACE_ME* ]]; then
+    echo "❌ COLLECTION_ENDPOINT is not set. Export it to your collection endpoint and re-run."
+    exit 1
+fi
 
 echo "Creating vector index '$INDEX_NAME' in OpenSearch Serverless collection..."
 

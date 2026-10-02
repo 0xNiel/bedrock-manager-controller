@@ -167,7 +167,7 @@ aws iam create-role --role-name BedrockControllerRole --assume-role-policy-docum
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::YOUR_ACCOUNT:oidc-provider/oidc.eks.YOUR_REGION.amazonaws.com/id/YOUR_CLUSTER_ID"
+        "Federated": "arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:oidc-provider/oidc.eks.YOUR_REGION.amazonaws.com/id/YOUR_CLUSTER_ID"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -184,7 +184,7 @@ aws iam create-role --role-name BedrockControllerRole --assume-role-policy-docum
 aws iam attach-role-policy --role-name BedrockControllerRole --policy-arn arn:aws:iam::aws:policy/AmazonBedrockFullAccess
 
 # 3. Update deploy/serviceaccount.yaml with the role ARN:
-#    eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_ACCOUNT:role/BedrockControllerRole
+#    eks.amazonaws.com/role-arn: arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/BedrockControllerRole
 ```
 
 **For local development or non-EKS**:
@@ -209,7 +209,7 @@ aws iam create-role --role-name AmazonBedrockExecutionRoleForAgents --assume-rol
       "Action": "sts:AssumeRole",
       "Condition": {
         "StringEquals": {
-          "aws:SourceAccount": "YOUR_ACCOUNT_ID"
+          "aws:SourceAccount": "REPLACE_ME_AWS_ACCOUNT_ID"
         }
       }
     }
@@ -220,11 +220,11 @@ aws iam create-role --role-name AmazonBedrockExecutionRoleForAgents --assume-rol
 aws iam attach-role-policy --role-name AmazonBedrockExecutionRoleForAgents --policy-arn arn:aws:iam::aws:policy/AmazonBedrockFullAccess
 
 # 3. Use this role ARN in your BedrockResource CRs:
-#    spec.agent.agentResourceRoleArn: arn:aws:iam::YOUR_ACCOUNT:role/AmazonBedrockExecutionRoleForAgents
+#    spec.agent.agentResourceRoleArn: arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForAgents
 ```
 
 **Replace placeholders**:
-- `YOUR_ACCOUNT`: Your AWS account ID
+- `REPLACE_ME_AWS_ACCOUNT_ID`: Your AWS account ID
 - `YOUR_REGION`: Your AWS region (e.g., us-east-1)
 - `YOUR_CLUSTER_ID`: Your EKS cluster OIDC issuer ID
 
@@ -266,4 +266,4 @@ aws iam attach-role-policy --role-name AmazonBedrockExecutionRoleForAgents --pol
 
 ## License
 
-[Add your license here]
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

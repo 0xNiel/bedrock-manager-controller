@@ -172,11 +172,11 @@ spec:
   knowledgeBase:
     name: "ProductKnowledgeBase"
     description: "Knowledge base containing product information and FAQs"
-    roleArn: "arn:aws:iam::ACCOUNT:role/AmazonBedrockExecutionRoleForKnowledgeBase_TestRole"
+    roleArn: "arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForKnowledgeBase_TestRole"
     embeddingModelArn: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1"
     vectorStoreType: "OPENSEARCH_SERVERLESS"
     opensearchServerlessConfiguration:
-      collectionArn: "arn:aws:aoss:us-east-1:ACCOUNT:collection/kb-collection"
+      collectionArn: "arn:aws:aoss:us-east-1:REPLACE_ME_AWS_ACCOUNT_ID:collection/kb-collection"
       vectorIndexName: "vector-index"
       vectorField: "vector"
       textField: "text"

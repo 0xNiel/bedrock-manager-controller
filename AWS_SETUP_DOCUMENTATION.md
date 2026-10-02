@@ -5,9 +5,12 @@ This document tracks all AWS resources created during Knowledge Base integration
 ## 🗂️ AWS Resources Created
 
 ### Account Information
+> **REPLACE ME:** Every `REPLACE_ME_*` value below is a placeholder. Substitute your own AWS account ID
+> (`aws sts get-caller-identity --query Account --output text`) and the collection ID printed by
+> `scripts/setup-kb-aws-resources.sh`.
+
 - **AWS Account ID**: `REPLACE_ME_AWS_ACCOUNT_ID`
 - **Region**: `us-east-1`
-- **Testing Date**: `2025-08-15`
 
 ### 1. IAM Role for Knowledge Base Execution
 

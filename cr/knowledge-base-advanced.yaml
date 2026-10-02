@@ -9,10 +9,12 @@ spec:
   knowledgeBase:
     name: "AdvancedKnowledgeBase"
     description: "Advanced knowledge base with comprehensive configuration for enterprise documents"
+    # REPLACE ME: Knowledge Base execution role ARN (replace REPLACE_ME_AWS_ACCOUNT_ID with your AWS account ID)
     roleArn: "arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForKnowledgeBase_TestRole"
     embeddingModelArn: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
     vectorStoreType: "OPENSEARCH_SERVERLESS"
     opensearchServerlessConfiguration:
+      # REPLACE ME: your OpenSearch Serverless collection ARN
       collectionArn: "arn:aws:aoss:us-east-1:REPLACE_ME_AWS_ACCOUNT_ID:collection/enterprise-kb-collection"
       vectorIndexName: "enterprise-vector-index"
       vectorField: "bedrock-knowledge-base-default-vector"

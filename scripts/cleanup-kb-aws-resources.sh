@@ -16,7 +16,6 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 REGION="us-east-1"
 KB_ROLE_NAME="AmazonBedrockExecutionRoleForKnowledgeBase_TestRole"
 COLLECTION_NAME="kb-collection"
-COLLECTION_ID="REPLACE_ME_COLLECTION_ID"
 S3_BUCKET_NAME="bedrock-kb-test-data-${ACCOUNT_ID}"
 POLICY_NAME="BedrockKnowledgeBaseTestPolicy"
 
@@ -73,6 +72,7 @@ fi
 echo "Step 4: Deleting OpenSearch Serverless collection..."
 if aws opensearchserverless list-collections --collection-filters name="$COLLECTION_NAME" | grep -q "$COLLECTION_NAME"; then
     echo "Deleting collection: $COLLECTION_NAME"
+    COLLECTION_ID=$(aws opensearchserverless list-collections --collection-filters name="$COLLECTION_NAME" --query 'collectionSummaries[0].id' --output text)
     aws opensearchserverless delete-collection --id "$COLLECTION_ID" 2>/dev/null && echo "Collection deletion initiated" || echo "Failed to delete collection"
     
     # Wait for deletion to complete

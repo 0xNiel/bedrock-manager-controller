@@ -14,12 +14,15 @@ spec:
       You are an advanced customer service agent with access to customer data and order systems.
       Use the provided knowledge base and action groups to help customers effectively.
       Always maintain customer privacy and follow security protocols.
+    # REPLACE ME: IAM role ARN the agent assumes (replace REPLACE_ME_AWS_ACCOUNT_ID with your AWS account ID)
     agentResourceRoleArn: "arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForAgents_TestRole"
-    customerEncryptionKeyArn: "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+    # REPLACE ME: your KMS key ARN (or remove this field to use an AWS-owned key)
+    customerEncryptionKeyArn: "arn:aws:kms:us-east-1:REPLACE_ME_AWS_ACCOUNT_ID:key/REPLACE_ME_KMS_KEY_ID"
     autoPrepare: true
     idleSessionTTLInSeconds: 1800
     guardrailConfiguration:
-      guardrailId: "guardrail-12345"
+      # REPLACE ME: ID and version of an existing Bedrock guardrail (or remove guardrailConfiguration)
+      guardrailId: "REPLACE_ME_GUARDRAIL_ID"
       guardrailVersion: "1"
     memoryConfiguration:
       enabledMemoryTypes:

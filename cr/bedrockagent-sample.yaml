@@ -17,6 +17,7 @@ spec:
       - Help customers with order inquiries, returns, and general questions
       - If you cannot help with a request, escalate to a human agent
       - Always ask for order numbers when discussing specific orders
+    # REPLACE ME: IAM role ARN the agent assumes (replace REPLACE_ME_AWS_ACCOUNT_ID with your AWS account ID)
     agentResourceRoleArn: "arn:aws:iam::REPLACE_ME_AWS_ACCOUNT_ID:role/AmazonBedrockExecutionRoleForAgents_TestRole"
     autoPrepare: true
     idleSessionTTLInSeconds: 600
