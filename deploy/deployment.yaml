@@ -18,7 +18,8 @@ spec:
       serviceAccountName: bedrock-controller
       containers:
       - name: controller
-        image: bedrock-controller:latest
+        # REPLACE ME: the image pushed by `make docker-push IMAGE_REGISTRY=<your-registry>`
+        image: REPLACE_ME_REGISTRY/bedrock-manager-controller:REPLACE_ME_TAG
         imagePullPolicy: IfNotPresent
         env:
         - name: AWS_REGION

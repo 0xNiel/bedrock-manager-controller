@@ -1,0 +1,16 @@
+.git
+.gitignore
+.dockerignore
+.DS_Store
+bin/
+dist/
+references/
+coverage.*
+/bedrock-manager-controller
+/controller/controller
+*.md
+cr/
+crd/
+deploy/
+scripts/
+tests/

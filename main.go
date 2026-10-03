@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -70,7 +72,7 @@ func main() {
 
 	config := &ControllerConfig{}
 	flag.StringVar(&config.KubeConfig, "kubeconfig", "", "Path to kubeconfig file")
-	flag.StringVar(&config.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to")
+	flag.StringVar(&config.MetricsAddr, "metrics-bind-address", ":8080", "The address the health probe endpoints (/healthz, /readyz) bind to")
 	flag.BoolVar(&config.LeaderElection, "leader-elect", false, "Enable leader election for controller manager")
 	flag.StringVar(&config.Region, "region", "us-east-1", "AWS region")
 	flag.IntVar(&config.Workers, "workers", 1, "Number of worker goroutines")
@@ -111,6 +113,9 @@ func main() {
 		klog.Fatalf("Failed to create controller: %v", err)
 	}
 
+	// Serve liveness and readiness probes for the Deployment
+	startHealthServer(ctx, config.MetricsAddr, ctrl.informer.HasSynced)
+
 	klog.Info("Starting controller")
 	if err := ctrl.Run(ctx); err != nil {
 		klog.Fatalf("Controller failed: %v", err)
@@ -130,6 +135,44 @@ func setupSignalHandling(cancel context.CancelFunc) {
 		<-c
 		klog.Info("Received second shutdown signal, shutting down immediately...")
 		os.Exit(1)
+	}()
+}
+
+// startHealthServer serves /healthz (process is alive) and /readyz (informer cache has synced)
+// on addr, and shuts the server down when ctx is cancelled.
+func startHealthServer(ctx context.Context, addr string, ready func() bool) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+		if !ready() {
+			http.Error(w, "informer cache not synced", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		klog.Infof("Serving health probes on %s", addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			klog.Fatalf("Health server failed: %v", err)
+		}
+	}()
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
 	}()
 }
 

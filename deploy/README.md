@@ -88,6 +88,11 @@ If running on EC2 nodes, attach the IAM role to the instance profile.
 
 ## Deployment Steps
 
+0. **Build and push the image**, then set it in `deployment.yaml` (marked `REPLACE ME`):
+```bash
+make -C .. docker-push IMAGE_REGISTRY=<your-registry>
+```
+
 1. **Create namespace**:
 ```bash
 kubectl create namespace bedrock-system

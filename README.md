@@ -54,9 +54,11 @@ This controller provides a single, unified approach to managing AWS Bedrock reso
 
 3. **Deploy controller**:
    ```bash
-   # Build and deploy
-   make build-deploy
-   make docker-deploy
+   # Build and push the image to a registry your cluster can pull from
+   make docker-push IMAGE_REGISTRY=<your-registry>   # e.g. ghcr.io/<user>
+
+   # Set the pushed image in deploy/deployment.yaml and the IRSA role in
+   # deploy/serviceaccount.yaml (both marked REPLACE ME), then:
    kubectl create namespace bedrock-system
    kubectl apply -f deploy/
    ```
@@ -122,9 +124,12 @@ make build-local
 make build-deploy
 
 # Docker images
-make docker-local    # for local platform
-make docker-deploy   # for deployment
+make docker-local    # linux/arm64, for Docker Desktop on Apple silicon
+make docker-deploy   # linux/amd64, for deployment
+make docker-push IMAGE_REGISTRY=<your-registry>   # build and push linux/amd64
 ```
+
+The controller serves `/healthz` and `/readyz` on `:8080` (`--metrics-bind-address`). `/readyz` returns 503 until the informer cache has synced.
 
 ### Testing
 

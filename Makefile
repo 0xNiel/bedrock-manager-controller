@@ -5,6 +5,9 @@
 # Variables
 MODULE_NAME = github.com/odnielgonzalez/bedrock-manager-controller
 IMAGE_NAME = bedrock-manager-controller
+# Registry to push to, e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com or ghcr.io/<user>
+IMAGE_REGISTRY ?=
+IMAGE = $(if $(IMAGE_REGISTRY),$(IMAGE_REGISTRY)/)$(IMAGE_NAME)
 VERSION = $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 # Build flags
@@ -47,12 +50,22 @@ build-deploy: ## Build for deployment (linux/amd64)
 
 # Docker
 .PHONY: docker-local
-docker-local: ## Build Docker image for local platform (darwin/arm64)
-	docker buildx build --platform darwin/arm64 -t $(IMAGE_NAME):local .
+docker-local: ## Build Docker image for local platform (linux/arm64, e.g. Docker Desktop on Apple silicon)
+	docker buildx build --platform linux/arm64 --build-arg VERSION=$(VERSION) --load -t $(IMAGE):local .
 
 .PHONY: docker-deploy
 docker-deploy: ## Build Docker image for deployment (linux/amd64)
-	docker buildx build --platform linux/amd64 -t $(IMAGE_NAME):$(VERSION) .
+	docker buildx build --platform linux/amd64 --build-arg VERSION=$(VERSION) --load -t $(IMAGE):$(VERSION) .
+	@echo "Built $(IMAGE):$(VERSION)"
+
+.PHONY: require-registry
+require-registry:
+	@test -n "$(IMAGE_REGISTRY)" || (echo "❌ Set IMAGE_REGISTRY, e.g. make docker-push IMAGE_REGISTRY=ghcr.io/<user>" && exit 1)
+
+.PHONY: docker-push
+docker-push: require-registry docker-deploy ## Build and push the deployment image (requires IMAGE_REGISTRY)
+	docker push $(IMAGE):$(VERSION)
+	@echo "Pushed $(IMAGE):$(VERSION) - set this as the image in deploy/deployment.yaml"
 
 # Run
 .PHONY: run

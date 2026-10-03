@@ -2,7 +2,10 @@
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git ca-certificates
+RUN apk add --no-cache ca-certificates
+
+# Version embedded in the binary (passed by the Makefile)
+ARG VERSION=dev
 
 # Set working directory
 WORKDIR /workspace
@@ -19,14 +22,14 @@ COPY . .
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -trimpath \
-    -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')" \
-    -o controller .
+    -ldflags "-s -w -X main.version=${VERSION}" \
+    -o /out/controller .
 
 # Final stage
 FROM gcr.io/distroless/static:nonroot
 
 # Copy the binary from builder stage
-COPY --from=builder /workspace/controller /controller
+COPY --from=builder /out/controller /controller
 
 # Use nonroot user
 USER 65532:65532
