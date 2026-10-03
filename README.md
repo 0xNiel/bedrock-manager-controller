@@ -57,7 +57,8 @@ This controller provides a single, unified approach to managing AWS Bedrock reso
    # Build and deploy
    make build-deploy
    make docker-deploy
-   # Apply deployment manifests (when created)
+   kubectl create namespace bedrock-system
+   kubectl apply -f deploy/
    ```
 
 ### Usage Examples
@@ -126,6 +127,8 @@ make docker-deploy   # for deployment
 ```
 
 ### Testing
+
+The suite runs fully offline against a mock Bedrock client, so it needs no AWS account or cluster. Its 34 tests cover create, update and delete for agents, inference profiles and knowledge bases, plus agent auto-prepare, finalizer cleanup and AWS error handling. They also include regression tests for reconcile loops, stale informer caches and resource-version conflicts. `make test` runs them with the race detector.
 
 ```bash
 # Run unit tests
@@ -249,8 +252,7 @@ aws iam attach-role-policy --role-name AmazonBedrockExecutionRoleForAgents --pol
 │   ├── rbac.yaml      # RBAC configuration
 │   ├── serviceaccount.yaml # Service account with IRSA
 │   └── README.md      # Deployment guide
-├── references/         # Read-only reference code (gitignored)
-├── tests/              # Unit tests (gitignored)
+├── tests/              # Unit and integration tests (mock Bedrock client)
 ├── main.go            # Main entry point
 ├── Dockerfile         # Container image definition
 ├── Makefile           # Build and development targets

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	bedrocktypes "github.com/aws/aws-sdk-go-v2/service/bedrock/types"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockagent"
@@ -46,6 +47,13 @@ type MockBedrockClient struct {
 	deleteDataSourceError error
 	listDataSourcesError  error
 
+	// Control behavior - Ingestion Jobs
+	startIngestionJobError error
+	listIngestionJobsError error
+
+	// Mock ingestion job state
+	ingestionJobs map[string][]types.IngestionJobSummary // map[dataSourceId] = jobs
+
 	// Control behavior - OpenSearch
 	createOpenSearchIndexError      error
 	checkOpenSearchIndexExistsError error
@@ -80,6 +88,10 @@ type MockBedrockClient struct {
 	DeleteDataSourceCalled bool
 	ListDataSourcesCalled  bool
 
+	// Call tracking - Ingestion Jobs
+	StartIngestionJobCalled bool
+	ListIngestionJobsCalled bool
+
 	// Input tracking - Agents
 	CreateAgentInput  *bedrockagent.CreateAgentInput
 	GetAgentInput     *bedrockagent.GetAgentInput
@@ -106,6 +118,10 @@ type MockBedrockClient struct {
 	UpdateDataSourceInput *bedrockagent.UpdateDataSourceInput
 	DeleteDataSourceInput *bedrockagent.DeleteDataSourceInput
 	ListDataSourcesInput  *bedrockagent.ListDataSourcesInput
+
+	// Input tracking - Ingestion Jobs
+	StartIngestionJobInput *bedrockagent.StartIngestionJobInput
+	ListIngestionJobsInput *bedrockagent.ListIngestionJobsInput
 }
 
 // NewMockBedrockClient creates a new mock Bedrock client
@@ -115,6 +131,7 @@ func NewMockBedrockClient() *MockBedrockClient {
 		inferenceProfiles: make(map[string]bedrocktypes.InferenceProfileSummary),
 		knowledgeBases:    make(map[string]*types.KnowledgeBase),
 		dataSources:       make(map[string]*types.DataSource),
+		ingestionJobs:     make(map[string][]types.IngestionJobSummary),
 		openSearchIndices: make(map[string]bool),
 	}
 }
@@ -677,6 +694,66 @@ func (m *MockBedrockClient) ListDataSources(ctx context.Context, params *bedrock
 	}, nil
 }
 
+// StartIngestionJob implements BedrockClient.StartIngestionJob
+func (m *MockBedrockClient) StartIngestionJob(ctx context.Context, params *bedrockagent.StartIngestionJobInput, optFns ...func(*bedrockagent.Options)) (*bedrockagent.StartIngestionJobOutput, error) {
+	m.StartIngestionJobCalled = true
+	m.StartIngestionJobInput = params
+
+	if m.startIngestionJobError != nil {
+		return nil, m.startIngestionJobError
+	}
+
+	jobId := fmt.Sprintf("job-%d", time.Now().UnixNano())
+	now := time.Now()
+	summary := types.IngestionJobSummary{
+		IngestionJobId:  aws.String(jobId),
+		KnowledgeBaseId: params.KnowledgeBaseId,
+		DataSourceId:    params.DataSourceId,
+		Status:          types.IngestionJobStatusStarting,
+		StartedAt:       &now,
+		UpdatedAt:       &now,
+	}
+	if m.ingestionJobs == nil {
+		m.ingestionJobs = make(map[string][]types.IngestionJobSummary)
+	}
+	m.ingestionJobs[*params.DataSourceId] = append(m.ingestionJobs[*params.DataSourceId], summary)
+
+	return &bedrockagent.StartIngestionJobOutput{
+		IngestionJob: &types.IngestionJob{
+			IngestionJobId:  summary.IngestionJobId,
+			KnowledgeBaseId: summary.KnowledgeBaseId,
+			DataSourceId:    summary.DataSourceId,
+			Status:          summary.Status,
+			StartedAt:       summary.StartedAt,
+			UpdatedAt:       summary.UpdatedAt,
+		},
+	}, nil
+}
+
+// ListIngestionJobs implements BedrockClient.ListIngestionJobs
+func (m *MockBedrockClient) ListIngestionJobs(ctx context.Context, params *bedrockagent.ListIngestionJobsInput, optFns ...func(*bedrockagent.Options)) (*bedrockagent.ListIngestionJobsOutput, error) {
+	m.ListIngestionJobsCalled = true
+	m.ListIngestionJobsInput = params
+
+	if m.listIngestionJobsError != nil {
+		return nil, m.listIngestionJobsError
+	}
+
+	return &bedrockagent.ListIngestionJobsOutput{
+		IngestionJobSummaries: m.ingestionJobs[*params.DataSourceId],
+	}, nil
+}
+
+// SetStartIngestionJobError sets an error to be returned by StartIngestionJob
+func (m *MockBedrockClient) SetStartIngestionJobError(err error) {
+	m.startIngestionJobError = err
+}
+
+// SetListIngestionJobsError sets an error to be returned by ListIngestionJobs
+func (m *MockBedrockClient) SetListIngestionJobsError(err error) {
+	m.listIngestionJobsError = err
+}
+
 // Helper methods for setting up inference profile errors
 
 // SetCreateInferenceProfileError sets an error to be returned by CreateInferenceProfile
@@ -758,6 +835,7 @@ func (m *MockBedrockClient) Reset() {
 	m.inferenceProfiles = make(map[string]bedrocktypes.InferenceProfileSummary)
 	m.knowledgeBases = make(map[string]*types.KnowledgeBase)
 	m.dataSources = make(map[string]*types.DataSource)
+	m.ingestionJobs = make(map[string][]types.IngestionJobSummary)
 
 	// Clear agent errors
 	m.createAgentError = nil
@@ -785,6 +863,10 @@ func (m *MockBedrockClient) Reset() {
 	m.updateDataSourceError = nil
 	m.deleteDataSourceError = nil
 	m.listDataSourcesError = nil
+
+	// Clear ingestion job errors
+	m.startIngestionJobError = nil
+	m.listIngestionJobsError = nil
 
 	// Clear OpenSearch errors
 	m.createOpenSearchIndexError = nil

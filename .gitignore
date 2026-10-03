@@ -13,3 +13,4 @@ coverage.*
 # Compiled binaries
 /bedrock-manager-controller
 /controller/controller
+TASKS.md
